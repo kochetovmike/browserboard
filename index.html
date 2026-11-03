@@ -9,7 +9,14 @@
     <title>browserboard</title>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <!-- Replaced by the app on start. Still visible = the script never ran (e.g. opened via file://). -->
+      <p style="font-family: system-ui, sans-serif; padding: 24px; max-width: 560px">
+        Loading browserboard… If this message stays, the page was probably opened straight from
+        disk. Run <code>npm run dev</code> (or <code>npm run preview</code> after a build) and open
+        the http://localhost address it prints.
+      </p>
+    </div>
     <noscript>browserboard needs JavaScript to run the games.</noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>

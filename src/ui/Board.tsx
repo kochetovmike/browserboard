@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { GameDefinition } from '../core/types';
+import { candidatesFor, resolveClick } from './moveInput';
 import type { PieceRenderer } from './pieces';
 
 interface BoardProps<P, M> {
@@ -14,8 +15,6 @@ interface BoardProps<P, M> {
 }
 
 const S = 100; // square size in SVG units
-
-const startsWith = (path: number[], prefix: number[]) => prefix.every((sq, i) => path[i] === sq);
 
 /**
  * Game-agnostic SVG board. Input is click-to-move along each move's "click path"
@@ -34,7 +33,7 @@ export function Board<P, M>(props: BoardProps<P, M>) {
   }, [position, legal]);
 
   const paths = useMemo(() => legal.map((m) => ({ m, path: g.movePath(m) })), [legal, g]);
-  const candidates = prefix.length ? paths.filter((x) => startsWith(x.path, prefix)) : [];
+  const candidates = candidatesFor(paths, prefix);
   const targets = new Set<number>();
   for (const c of candidates) for (const sq of c.path.slice(prefix.length)) targets.add(sq);
   const finals = new Set(candidates.map((c) => c.path[c.path.length - 1]));
@@ -44,31 +43,36 @@ export function Board<P, M>(props: BoardProps<P, M>) {
     flipped ? { row: g.rows - 1 - row, col: g.cols - 1 - col } : { row, col };
 
   const click = (sq: number) => {
-    if (sq < 0 || choice) return;
-    if (prefix.length && targets.has(sq)) {
-      const ending = candidates.filter((c) => c.path[c.path.length - 1] === sq);
-      if (ending.length === 1) {
-        setPrefix([]);
-        onMove(ending[0].m);
-        return;
-      }
-      if (ending.length > 1) {
-        setChoice(ending.map((c) => c.m));
-        return;
-      }
-      // Intermediate hop of a multi-jump: extend the prefix along a matching path.
-      const via = candidates.find((c) => c.path.indexOf(sq, prefix.length) >= 0);
-      if (via) setPrefix(via.path.slice(0, via.path.indexOf(sq, prefix.length) + 1));
-      return;
+    if (choice) return;
+    const r = resolveClick(paths, prefix, sq);
+    if (r.kind === 'select') setPrefix(r.prefix);
+    else if (r.kind === 'choose') setChoice(r.moves);
+    else if (r.kind === 'move') {
+      setPrefix([]);
+      onMove(r.move);
     }
-    if (movable.has(sq) && !(prefix.length === 1 && prefix[0] === sq)) setPrefix([sq]);
-    else setPrefix([]);
   };
 
   const lastSquares = new Set(lastMove !== null ? g.highlightSquares(lastMove) : []);
   const alert = g.alertSquare(position);
   const pieces = g.pieces(position);
   const pieceAt = new Map(pieces.map((p) => [p.sq, p]));
+
+  // Partially entered multi-jump: draw the moving piece on the last clicked hop and
+  // fade the pieces it has jumped so far, so each hop visibly "happens".
+  const jumped = new Set<number>();
+  if (prefix.length > 1) {
+    const last = prefix[prefix.length - 1];
+    const mover = pieceAt.get(prefix[0]);
+    if (mover) {
+      pieceAt.delete(prefix[0]);
+      pieceAt.set(last, { ...mover, sq: last });
+    }
+    for (let i = 1; i < prefix.length; i++) {
+      const j = g.jumpedSquare?.(prefix[i - 1], prefix[i]) ?? -1;
+      if (j >= 0) jumped.add(j);
+    }
+  }
 
   const squares = [];
   for (let row = 0; row < g.rows; row++) {
@@ -116,7 +120,12 @@ export function Board<P, M>(props: BoardProps<P, M>) {
             </text>
           )}
           {piece && (
-            <g transform={`translate(${S / 2} ${S / 2})`}>{renderPiece(piece.side, piece.kind)}</g>
+            <g
+              class={jumped.has(sq) ? 'jumped' : undefined}
+              transform={`translate(${S / 2} ${S / 2})`}
+            >
+              {renderPiece(piece.side, piece.kind)}
+            </g>
           )}
           {isTarget &&
             (piece || !finals.has(sq) ? (

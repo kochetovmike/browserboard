@@ -74,6 +74,8 @@ export interface BoardGeometry<P, M> {
   pieces(p: P): { sq: number; side: Side; kind: string }[];
   /** Squares a user clicks to enter this move: [from, ...intermediate, to]. */
   movePath(m: M): number[];
+  /** Square captured by hopping between two consecutive path squares, or -1 (multi-jump preview). */
+  jumpedSquare?(from: number, to: number): number;
   /** Squares to highlight as "last move". */
   highlightSquares(m: M): number[];
   /** Square to flag as "in check", if any. */
