@@ -3,4 +3,7 @@ import { App } from './ui/App';
 import './ui/styles.css';
 
 const root = document.getElementById('app');
-if (root) render(<App />, root);
+if (root) {
+  root.textContent = ''; // drop the static "loading / opened from disk" fallback
+  render(<App />, root);
+}

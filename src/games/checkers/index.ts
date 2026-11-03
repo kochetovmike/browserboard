@@ -89,6 +89,11 @@ export const checkers: GameDefinition<CheckersPosition, CheckersMove> = {
       return out;
     },
     movePath: (m) => [m.from, ...m.path],
+    jumpedSquare: (a, b) => {
+      const dr = rowOf(b) - rowOf(a);
+      if (Math.abs(dr) !== 2) return -1;
+      return squareAt(rowOf(a) + dr / 2, (colOf(a) + colOf(b)) / 2);
+    },
     highlightSquares: (m) => [m.from, ...m.path],
     alertSquare: () => -1,
     squareName: (sq) => String(sq + 1),
